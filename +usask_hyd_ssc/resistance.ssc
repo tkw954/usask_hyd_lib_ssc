@@ -1,0 +1,47 @@
+component resistance
+% Constant Area Laminar Resistance
+%
+% Ideal laminar resistance with constant area
+
+  nodes
+    PA = foundation.hydraulic.hydraulic; % PA:left
+    PB = foundation.hydraulic.hydraulic; % PB:right
+  end
+  inputs
+    
+  end
+  variables
+    q = {1, 'm^3/s'};     % Volumetric flow rate
+    p = {0, 'Pa'};        % Pressure
+  end
+  parameters
+    d = {10e-3 , 'm'}; % Hydraulic Diameter
+    L = {1 , 'm'}; % Length
+    
+  end
+  
+  parameters ( Access = private )
+    density =   { 860   , 'kg/m^3' }; % Fluid density
+    R =   { 860   , 'Pa/(m^3/s)' }; % Resistance
+    mu = {40e-3 , 'Pa*s'}; % Dynamic Viscosity
+  end 
+
+  function setup
+    through(q, PA.q, PB.q); % Through variable q from A to B
+    across(p, PA.p, PB.p);  % Across variable p from A to B
+    if d <= 0
+      error('Constant Diameter must be greater than zero')
+    end
+    if L <= 0
+      error('Constant Length must be greater than zero')
+    end
+    density = PA.density;
+    mu=PA.viscosity_kin*density;
+    R=128*mu*L/(pi*d^4);
+    
+  end
+
+  equations
+        p == R*q;
+  end
+end

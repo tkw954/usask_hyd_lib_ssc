@@ -1,0 +1,58 @@
+component staticCheckValve
+    % Check Valve
+    %
+    % Check valve with no dynamics. All flows are assumed to be turbulent.
+    
+    nodes
+        PA = foundation.hydraulic.hydraulic; % PA:left
+        PB = foundation.hydraulic.hydraulic; % PB:right
+    end
+    inputs
+        
+    end
+    variables
+        q = {1, 'm^3/s'};     % Volumetric flow rate
+        p = {0, 'Pa'};        % Pressure
+        Pw = {0, 'W'};        % Power Loss
+    end
+    parameters
+        Pcr = {0 , 'Pa'}; % Cracking Pressure
+        dPor= {10e3, 'Pa'}; % Pressure Override
+        Amax = {20e-6 , 'm^2'}; % Maximum Orifice Area
+        Al = {1e-9 , 'm^2'}; % Leakage Area
+        Cd     = 0.61;   % Discharge Coefficient
+    end
+    
+    parameters ( Access = private )
+        density =   { 860   , 'kg/m^3' }; % Fluid density
+        K = {0, 'm^2/Pa'}; % Area-pressure slope
+    end
+    
+    function setup
+    through(q, PA.q, PB.q); % Through variable q from A to B
+    across(p, PA.p, PB.p);  % Across variable p from A to B
+    if Cd <= 0
+        pm_error('simscape:GreaterThanZero','Discharge Coefficient')
+    end
+    if Amax <= 0
+        pm_error('simscape:GreaterThanZero','Orifice Area')
+    end
+    if Al <= 0
+        pm_error('simscape:GreaterThanZero','Leakage Area')
+    end
+    if dPor <= 0
+        pm_error('simscape:GreaterThanZero','Pressure Override')
+    end
+    density = PA.density;
+    K=(Amax-Al)/dPor;
+    end
+    
+    equations
+        let
+            A= if p<Pcr, Al elseif p>(Pcr+dPor), Amax else Al+(p-Pcr)*K end;
+        in
+            p == density/(2*Cd^2*A^2)*q^2*sign(q);
+        end
+        Pw == p*q;
+    end
+end

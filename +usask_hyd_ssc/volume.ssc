@@ -1,0 +1,42 @@
+component volume
+    % Constant Volume
+    %
+    % Ideal compressible volume
+    
+    
+    nodes
+        A = foundation.hydraulic.hydraulic; % :top
+    end
+    
+    parameters
+        V        = { 1e-4,	'm^3'	};	% Chamber volume
+        p0 = { 0,     'Pa'    };	% Initial pressure
+    end
+    
+    
+    variables
+        q        = { 0.001, 'm^3/s' };	% Flow rate into chamber
+        p = { 0 ,    'Pa'    };	% Pressure in the chamber
+    end
+    
+    function setup
+    through( q, A.q, [] );
+    across( p, A.p, [] );
+    p = p0;
+    
+    % Parameter range checking
+    if p0 < {-1, 'atm'}
+        pm_error('simscape:GreaterThanOrEqual','Initial pressure','absolute zero')
+    end
+    
+    if V <= 0
+        pm_error('simscape:GreaterThanZero','Chamber volume')
+    end    
+    end
+    
+    
+    equations
+        q == V / A.bulk * p.der;
+    end
+    
+end

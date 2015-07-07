@@ -1,0 +1,50 @@
+component checkedOrifice
+    % Constant Area Checked Orifice
+    %
+    % Ideal checked turbulent orifice with constant area.
+    
+    nodes
+        PA = foundation.hydraulic.hydraulic; % PA:left
+        PB = foundation.hydraulic.hydraulic; % PB:right
+    end
+    inputs
+        
+    end
+    variables
+        q = {1, 'm^3/s'};     % Volumetric flow rate
+        p = {0, 'Pa'};        % Pressure
+    end
+    parameters
+        A = {20e-6 , 'm^2'}; % Orifice Area
+        Al = {1e-9 , 'm^2'}; % Leakage Area
+        Cd     = 0.61;   % Discharge Coefficient
+    end
+    
+    parameters ( Access = private )
+        density =   { 860   , 'kg/m^3' }; % Fluid density
+    end
+    
+    function setup
+    through(q, PA.q, PB.q); % Through variable q from A to B
+    across(p, PA.p, PB.p);  % Across variable p from A to B
+    if Cd <= 0
+        error('Constant Discharge Area must be greater than zero')
+    end
+    if A <= 0
+        error('Constant Orifice Area must be greater than zero')
+    end
+    if Al <= 0
+        error('Constant Leakage Area must be greater than zero')
+    end
+    density = PA.density;
+    end
+    
+    equations
+        %    if gt(q,0)&gt(A_or,A_leakage)%note use gt rather than > to avoid zero crossing detection
+        if (q>0)&(A>Al)
+            p == density/(2*Cd^2*A^2)*q^2;
+        else
+            p == density/(2*Cd^2*Al^2)*sign(q)*q^2;
+        end
+    end
+end

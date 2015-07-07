@@ -1,0 +1,47 @@
+component orifice
+    % Constant Area Orifice
+    %
+    % Ideal turbulent orifice with constant area
+    
+    nodes
+        PA = foundation.hydraulic.hydraulic; % PA:left
+        PB = foundation.hydraulic.hydraulic; % PB:right
+    end
+    inputs
+        
+    end
+    variables
+        q = {1, 'm^3/s'};     % Volumetric flow rate
+        p = {0, 'Pa'};        % Pressure
+        Pw = {0, 'W'};        % Power Loss
+    end
+    parameters
+        A = {20e-6 , 'm^2'}; % Orifice Area
+        Cd     = 0.61;   % Discharge Coefficient
+    end
+    
+    parameters ( Access = private )
+        density =   { 860   , 'kg/m^3' }; % Fluid density
+    end
+    
+    function setup
+    through(q, PA.q, PB.q); % Through variable q from A to B
+    across(p, PA.p, PB.p);  % Across variable p from A to B
+    if Cd <= 0
+        error('Constant Discharge Area must be greater than zero')
+    end
+    if A <= 0
+        error('Constant Area must be greater than zero')
+    end
+    density = PA.density;
+    end
+    
+    equations
+        if gt(q,0)
+            p == density/(2*Cd^2*A^2)*q^2;
+        else
+            p == -density/(2*Cd^2*A^2)*q^2;
+        end
+        Pw == p*q;
+    end
+end

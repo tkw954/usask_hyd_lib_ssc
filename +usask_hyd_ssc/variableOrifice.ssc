@@ -1,0 +1,58 @@
+component variableOrifice
+    % Variable Area Orifice
+    %
+    % Ideal turbulent orifice with variable area
+    
+    nodes
+        PA = foundation.hydraulic.hydraulic; % PA:left
+        PB = foundation.hydraulic.hydraulic; % PB:right
+    end
+    inputs
+        A = {20e-6 , 'm^2'}; % A:left
+    end
+    variables
+        q = {1, 'm^3/s'};     % Volumetric flow rate
+        p = {0, 'Pa'};        % Pressure
+        Pw = {0, 'W'};        % Power Loss
+    end
+    parameters
+        Cd     = 0.61;   % Discharge Coefficient
+        Al = {1e-9 , 'm^2'}; % Leakage Area
+    end
+    
+    parameters ( Access = private )
+        density =   { 860   , 'kg/m^3' }; % Fluid density
+    end
+    
+    function setup
+    through(q, PA.q, PB.q); % Through variable q from A to B
+    across(p, PA.p, PB.p);  % Across variable p from A to B
+    if Cd <= 0
+        error('Constant Discharge Coefficient must be greater than zero')
+    end
+    if Al <= 0
+        error('Constant Leakge Area must be greater than zero')
+    end
+    density = PA.density;
+    end
+    
+    equations
+        if gt(A,Al)%note use gt rather than > to avoid zero crossing detection
+            %if (A>Al)
+            %p == density/(2*Cd^2*A^2)*sign(q)*q^2;
+            if gt(q,0)
+                p == density/(2*Cd^2*A^2)*q^2;
+            else
+                p == -density/(2*Cd^2*A^2)*q^2;
+            end
+        else
+            if gt(q,0)
+                p == density/(2*Cd^2*Al^2)*q^2;
+            else
+                p == -density/(2*Cd^2*Al^2)*q^2;
+            end
+        end
+        Pw == p*q;
+    end
+    
+end

@@ -1,0 +1,2 @@
+to build, run in this directory:
+ssc_build

@@ -1,0 +1,64 @@
+component constantPump
+    % Fixed Displacement Pump
+    
+    
+    
+    
+    nodes
+        C = foundation.mechanical.rotational.rotational; % C:left
+        S = foundation.mechanical.rotational.rotational; % S:right
+        A = foundation.hydraulic.hydraulic;              % A:left
+        B = foundation.hydraulic.hydraulic;              % B:right
+    end
+    
+    inputs
+        
+    end
+    
+    parameters
+        D  = { 1.2e-4, 'm^3/rad' }; % Displacement
+        eff_v0={0.9, '1'}; % Nominal Volumetric Efficiency
+        eff_m0={0.9, '1'}; % Nominal Mechanical Efficiency
+        p0={10e6, 'Pa'}; % Nominal Pressure
+        %omega0={2000*2*pi/60, 'rad/s'}; %Nominal speed
+        omega0={2000, 'rpm'}; %Nominal speed
+        mu0 = {40e-3 , 'Pa*s'}; % Nominal dynamic viscosity
+        %  Dmax={1.2e-4, 'm^3/rad'}; %Max displacement
+        
+        
+    end
+    
+    parameters(Hidden=true)
+        Cs={0, '1'}; % Slip coefficient
+        %Cf={0, '1'}; %Pressure friction coefficient
+        CD={0, '1'}; % viscous damping coefficient
+        mu = {40e-3 , 'Pa*s'}; % Dynamic Viscosity
+        density =   { 860   , 'kg/m^3' }; % Fluid density
+    end
+    
+    variables
+        t = { 0, 'N*m' }; %torque
+        q   = { 0, 'm^3/s' };   %flow
+        p = {0, 'Pa'};        % Pressure
+        omega = {0, 'rad/s'}; %shaft speed
+    end
+    
+    function setup
+    through( t, S.t, C.t );
+    through(q, A.q, B.q); % Through variable q from A to B
+    across(p, B.p, A.p);  % Across variable p from A to B
+    across(omega, S.w, C.w);  %
+    % Parameter range checking
+    
+    density = A.density;
+    mu=A.viscosity_kin*density;
+    
+    Cs=(1-eff_v0)*mu0*omega0/p0;
+    CD=(1/eff_m0-1)*p0/(mu0*omega0);
+    end
+    
+    equations
+        t == D*p+CD*mu*D*omega;
+        q == D*omega-Cs*p*D/mu;
+    end
+end
