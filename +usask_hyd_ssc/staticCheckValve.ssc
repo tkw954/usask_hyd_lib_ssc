@@ -1,7 +1,12 @@
 component staticCheckValve
     % Check Valve
     %
-    % Check valve with no dynamics. All flows are assumed to be turbulent.
+    % Check valve with no dynamics. All flows are assumed to be turbulent with
+    % Laminar region near zero per Ellman, Asko, and Robert Piche?. "A two 
+    % regime orifice flow formula for numerical simulation." Journal of 
+    % dynamic systems, measurement, and control 121.4 (1999): 721-724.
+    % Set critical Reynolds number to zero for turbulent orifice (which may
+    % have numerical stability issues.
     
     nodes
         PA = foundation.hydraulic.hydraulic; % PA:left
@@ -21,11 +26,13 @@ component staticCheckValve
         Amax = {20e-6 , 'm^2'}; % Maximum Orifice Area
         Al = {1e-9 , 'm^2'}; % Leakage Area
         Cd     = 0.61;   % Discharge Coefficient
+        Re_cr = 9.3; % Critical Reynolds Number
     end
     
     parameters ( Access = private )
-        density =   { 860   , 'kg/m^3' }; % Fluid density
+        rho =   { 860   , 'kg/m^3' }; % Fluid density
         K = {0, 'm^2/Pa'}; % Area-pressure slope
+        nu =   { 10e-6   , 'm^2/s' }; % Fluid kinematic viscosity
     end
     
     function setup
@@ -43,15 +50,42 @@ component staticCheckValve
     if dPor <= 0
         pm_error('simscape:GreaterThanZero','Pressure Override')
     end
-    density = PA.density;
+    if Re_cr < 0
+        pm_error('simscape:GreaterThanOrEqualToZero','Critical Re')
+    end
+    rho = PA.density;
     K=(Amax-Al)/dPor;
     end
     
     equations
+        
         let
             A= if p<Pcr, Al elseif p>(Pcr+dPor), Amax else Al+(p-Pcr)*K end;
         in
-            p == density/(2*Cd^2*A^2)*q^2*sign(q);
+            if Re_cr > 0
+                let
+                    D=sqrt(4/pi*A);
+                    P_cr=9*Re_cr^2*rho*nu^2/(8*Cd^2*D^2);
+                in
+                    if gt(p,P_cr)%note use gt rather than > to avoid zero crossing detection
+                        q == Cd*A*sqrt(2/rho*p);
+                    elseif lt(p,-P_cr)
+                        q == -Cd*A*sqrt(2/rho*-p);
+                    elseif gt(p,0)
+                        q == 3*A*nu*Re_cr/(4*D)*(p/P_cr)*(3-p/P_cr);
+                    else
+                        q == - 3*A*nu*Re_cr/(4*D)*(-p/P_cr)*(3+p/P_cr);
+                    end
+                end
+                
+            else
+                
+                if gt(p,0)
+                    q == Cd*A*sqrt(2/rho*p)
+                else
+                    q == -Cd*A*sqrt(2/rho*(-p))
+                end
+            end
         end
         Pw == p*q;
     end

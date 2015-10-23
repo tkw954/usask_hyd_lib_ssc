@@ -1,0 +1,83 @@
+component variableOrificeQ
+    % Variable Area Orifice Flow
+    %
+    %
+    % Ideal turbulent orifice with variable area. Laminar region near zero
+    % per Ellman, Asko, and Robert Piche?. "A two regime orifice flow
+    % formula for numerical simulation." Journal of dynamic systems,
+    % measurement, and control 121.4 (1999): 721-724.
+    
+    nodes
+        PA = foundation.hydraulic.hydraulic; % PA:left
+        PB = foundation.hydraulic.hydraulic; % PB:right
+    end
+    inputs
+        A = {20e-6 , 'm^2'}; % A:left
+    end
+    variables
+        q = {1, 'm^3/s'};     % Volumetric flow rate
+        p = {0, 'Pa'};        % Pressure
+        Pw = {0, 'W'};        % Power Loss
+    end
+    parameters
+        Cd     = 0.61;   % Discharge Coefficient
+        Al = {1e-9 , 'm^2'}; % Leakage Area
+        Re_cr = 9.3; % Critical Reynolds Number
+    end
+    
+    parameters ( Access = private )
+        rho =   { 860   , 'kg/m^3' }; % Fluid density
+        nu =   { 10e-6   , 'm^2/s' }; % Fluid kinematic viscosity
+    end
+    
+    function setup
+    through(q, PA.q, PB.q); % Through variable q from A to B
+    across(p, PA.p, PB.p);  % Across variable p from A to B
+    if Cd <= 0
+        error('Constant Discharge Coefficient must be greater than zero')
+    end
+    if Al <= 0
+        error('Constant Leakge Area must be greater than zero')
+    end
+    if Re_cr < 0
+        error('Constant Critical Re must be greater than or equal to zero')
+    end
+    rho = PA.density;
+    nu=PA.viscosity_kin;
+    end
+    
+    equations
+        if Re_cr > 0
+            let
+                Ar = if A > Al, A else Al end;
+                D=sqrt(4/pi*Ar);
+                P_cr=9*Re_cr^2*rho*nu^2/(8*Cd^2*D^2);
+            in
+                if gt(p,P_cr)%note use gt rather than > to avoid zero crossing detection
+                    q == Cd*Ar*sqrt(2/rho*p);
+                elseif lt(p,-P_cr)
+                    q == -Cd*Ar*sqrt(2/rho*-p);
+                elseif gt(p,0)
+                    q == 3*Ar*nu*Re_cr/(4*D)*(p/P_cr)*(3-p/P_cr);
+                else
+                    q == - 3*Ar*nu*Re_cr/(4*D)*(-p/P_cr)*(3+p/P_cr);
+                end
+            end
+        else
+            let
+                Ar = if A > Al, A else Al end;
+            in
+                if gt(p,0)
+                    q == Cd*Ar*sqrt(2/rho*p);
+                else
+                    q == - Cd*Ar*sqrt(2/rho*-p);
+                end
+            end
+        end
+        Pw == p*q;
+    end
+    
+end
+
+
+
