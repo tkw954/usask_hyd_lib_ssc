@@ -1,14 +1,15 @@
-component staticCheckValve
-    % Check Valve
+component checkValve
+    % Dynamic Check Valve
     %
-    % Check valve with no dynamics. All flows are assumed to be turbulent with
-    % Laminar region near zero per Ellman, Asko, and Robert Piche?. "A two 
-    % regime orifice flow formula for numerical simulation." Journal of 
+    % Check valve with or without no dynamics. All flows are assumed to be turbulent with
+    % Laminar region near zero per Ellman, Asko, and Robert Piche?. "A two
+    % regime orifice flow formula for numerical simulation." Journal of
     % dynamic systems, measurement, and control 121.4 (1999): 721-724.
-    % Set critical Reynolds number to zero for turbulent orifice (which may
-    % have numerical stability issues.
     %
-    % Note, all functionality here is available in checkValve model
+    % Set critical Reynolds number to zero for turbulent orifice (which may
+    % have numerical stability issues). 
+    
+    % Set natural frequency to 0 to eliminate dynamics
     
     nodes
         PA = foundation.hydraulic.hydraulic; % PA:left
@@ -21,6 +22,9 @@ component staticCheckValve
         q = {1, 'm^3/s'};     % Volumetric flow rate
         p = {0, 'Pa'};        % Pressure
         Pw = {0, 'W'};        % Power Loss
+        p_filt = {0, 'Pa'};   % Filtered Pressure
+        pdot_filt = {0, 'Pa/s'};   % Filtered Pressure Derivative
+        A = {0, 'm^2'};         % Orifice Area
     end
     parameters
         Pcr = {0 , 'Pa'}; % Cracking Pressure
@@ -29,6 +33,8 @@ component staticCheckValve
         Al = {1e-9 , 'm^2'}; % Leakage Area
         Cd     = 0.61;   % Discharge Coefficient
         Re_cr = 9.3; % Critical Reynolds Number
+        omega_n = {100, 'rad/s'}; % Undamped natural frequency
+        zeta = 1; % Damping ratio
     end
     
     parameters ( Access = private )
@@ -61,14 +67,38 @@ component staticCheckValve
     
     equations
         
+        if omega_n>0
+            %filter
+            p_filt.der==pdot_filt;
+            pdot_filt.der==omega_n^2*(p-p_filt-2*zeta/omega_n*pdot_filt);
+        else
+            p_filt.der==0;
+            pdot_filt.der==0;
+        end
+        
+        
+        
         let
-            A= if p<Pcr, Al elseif p>(Pcr+dPor), Amax else Al+(p-Pcr)*K end;
+            P= if omega_n>0, p_filt else p end;
+            
+            
+            
         in
+            %A= if P<Pcr, Al elseif P>(Pcr+dPor), Amax else Al+(P-Pcr)*K end;
+            if P<Pcr,
+                A ==Al;
+            elseif P>(Pcr+dPor)
+                A==Amax;
+            else
+                A==Al+(P-Pcr)*K;
+            end
             if Re_cr > 0
                 let
                     D=sqrt(4/pi*A);
                     P_cr=9*Re_cr^2*rho*nu^2/(8*Cd^2*D^2);
                 in
+                    
+                    
                     if gt(p,P_cr)%note use gt rather than > to avoid zero crossing detection
                         q == Cd*A*sqrt(2/rho*p);
                     elseif lt(p,-P_cr)
@@ -88,6 +118,7 @@ component staticCheckValve
                     q == -Cd*A*sqrt(2/rho*(-p))
                 end
             end
+            
         end
         Pw == p*q;
     end
